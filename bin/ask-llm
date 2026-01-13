@@ -1,0 +1,216 @@
+#!/bin/bash
+
+# ask-llm :  Send an llm a request given some prompting data
+#
+# Author: rafmartom (A T) gmail (D O T) com
+#
+# Usage:
+#   ask-llm [-h | --help]
+#   ask-llm [-p | --prompt prompt_string ] [-m | --model model_string] [--full] [--debug]
+#   ask-llm [options]
+#
+# Options:
+#   -h | --help          Show this help message
+#   -p | --prompt        Choose simple prompt form
+#   -o                   Objective
+#   -i                   Instruction/s to be followed by the LLM
+#   -c                   Context
+#   -t                   Template
+#   -q                   Question/s that LLM may need to gather from User
+#   -ge                  Good example/s of responses from the LLM
+#   -be                  Bad example/s of responses from the LLM
+#   -m | --model         Model string 'provider:model' i.e 'google:gemini-3-flash-preview'
+#   --full               Do NOT apply jq filter (raw JSON output)
+#   --debug              Debug mode, doesn't send the request, logs the request
+#
+# Input:
+#   - in
+#   - From stdin
+#
+# Examples:
+#   ask-llm -m "google:gemini-1.5-pro"
+#   ask-llm -m "google:gemini-1.5-pro" -p 'Here is a prompt'
+#   ask-llm -m "google:gemini-1.5-pro" \
+#       --objective "You are gonna do something" \
+#       --instruction "Do this and that" \
+#       --instruction "Then that and thoseone" \
+#       --context "providing that" \
+#       --template "Page 1) Murias Page2) Dorias" \
+#       --question "What are you feeling today?" \
+#       -ge "Eat doritos" \
+#       -be "Eat chicken"
+#
+# -----------------------------------------------------------------------------
+
+## ----------------------------------------------------------------------------
+# @section ARG_AND_VAR_INITIALIZAION
+
+usage() {
+    head -n 40 "$0" | tail -n +3 \
+        | awk '{ sub(/^# ?/, ""); print }'
+    exit 0
+}
+
+# Sourcing modules
+current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "${current_dir}"/../src/helpers.sh
+source "${current_dir}"/../src/llm-router.sh
+
+# Initializing variables
+model="gemini-flash-latest"
+full_output=false
+dry_run=false
+prompt=""
+context=""
+
+# Argument handling
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            ;;
+        -p|--prompt)
+            prompt="$2"
+            shift 2
+            ;;
+        -o|--objective)
+            if [[ -n "$2" ]]; then
+                objectives+=("$2")
+                shift 2
+            else
+                echo "Error: Missing argument for -o, --objective" >&2
+                return 1
+            fi
+            ;;
+        -i|--instruction)
+            if [[ -n "$2" ]]; then
+                instructions+=("$2")
+                shift 2
+            else
+                echo "Error: Missing argument for -i, --instruction" >&2
+                return 1
+            fi
+            ;;
+        -c|--context)
+            if [[ -n "$2" ]]; then
+                contexts+=("$2")
+                shift 2
+            else
+                echo "Error: Missing argument for -c, --context" >&2
+                return 1
+            fi
+            ;;
+        -t|--template)
+            if [[ -n "$2" ]]; then
+                templates+=("$2")
+                shift 2
+            else
+                echo "Error: Missing argument for -t, --template" >&2
+                return 1
+            fi
+            ;;
+        -q|--question)
+            if [[ -n "$2" ]]; then
+                questions+=("$2")
+                shift 2
+            else
+                echo "Error: Missing argument for -q, --question" >&2
+                return 1
+            fi
+            ;;
+        -ge|--good-example)
+            if [[ -n "$2" ]]; then
+                good_examples+=("$2")
+                shift 2
+            else
+                echo "Error: Missing argument for -ge, --good_example" >&2
+                return 1
+            fi
+            ;;
+        -be|--bad-example)
+            if [[ -n "$2" ]]; then
+                bad_examples+=("$2")
+                shift 2
+            else
+                echo "Error: Missing argument for -be, --bad_example" >&2
+                return 1
+            fi
+            ;;
+        -m|--model)
+            model_string="$2"
+            shift 2
+            ;;
+        --full)
+            full_output=true
+            shift
+            ;;
+        --dry-run)
+            dry_run=true
+            shift
+            ;;
+        -*)
+            echo "[Error] Unknown option: $1" >&2
+            usage
+            ;;
+    esac
+done
+
+
+## Loading .env
+# @todo  generalize the helper to be used for any cred , not just gemini
+load_env
+
+
+
+
+# 1. If prompt is still empty, try to read from stdin
+if [[ -z "${prompt}" ]]; then
+    # Check if stdin is NOT a terminal (meaning data is being piped in)
+    if [[ ! -t 0 ]]; then
+        prompt=$(cat)
+    fi
+fi
+
+# 2. Now check if prompt is STILL empty (nothing from flags AND nothing from stdin)
+if [[ -z "${prompt}" ]]; then
+    echo "[Error] No input provided via flags or stdin." >&2
+    usage
+    exit 1
+fi
+
+
+## EOF EOF EOF ARG_AND_VAR_INITIALIZAION 
+## ----------------------------------------------------------------------------
+
+
+## ----------------------------------------------------------------------------
+# @section HELPERS
+# @description Utility functions
+
+
+
+## EOF EOF EOF HELPERS 
+## ----------------------------------------------------------------------------
+
+
+
+## ----------------------------------------------------------------------------
+# @section MAIN_SUBROUTINES
+
+
+if [[ -z "${prompt}" ]]; then
+    prompt=$(build_prompt "${objectives}" "${instructions}" "${contexts}" "${templates}" "${questions}" "${good_examples}" "${bad_examples}")
+fi
+
+echo "<prompt>${prompt}</prompt>"
+
+
+llm-router "${prompt}" "${model_string}"
+
+
+##if [[ $GREET -eq 1 ]]; then
+##    greet "$VALUE"
+##fi
+
+## EOF EOF EOF MAIN_SUBROUTINES 
+## ----------------------------------------------------------------------------

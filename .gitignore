@@ -1,0 +1,6 @@
+# Auth files
+.env
+# LLM conversation files
+.prompt.md
+.response.md
+.history*.md

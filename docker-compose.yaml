@@ -1,0 +1,19 @@
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: req-bash.Dockerfile
+    volumes:
+      - .:/app
+    entrypoint: ["/usr/bin/bats"]
+    command: ["tests/helpers.bats"]
+
+  shell:
+    build:
+      context: .
+      dockerfile: req-bash.Dockerfile
+    volumes:
+      - .:/app
+    entrypoint: ["/bin/bash"]
+    stdin_open: true
+    tty: true
